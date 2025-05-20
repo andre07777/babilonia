@@ -1,14 +1,11 @@
-from models import Autor, Categoria, Livro, db  
+from models import Autor, Categoria, Livro, db
+
 
 def criar_banco():
-    try:
-        db.connect()
-        db.create_tables([Autor, Categoria, Livro], safe=True)
-        print("Banco de dados e tabelas criados com sucesso!")
-    except Exception as e:
-        print(f"Erro ao criar banco de dados: {e}")
-    finally:
-        db.close()
+    db.connect()
+    db.create_tables([Autor, Categoria, Livro], safe=True)
+    print("Banco de dados e tabelas criados com sucesso!")
+
 
 def menu():
     while True:
@@ -36,6 +33,7 @@ def menu():
         else:
             print("Opção inválida.")
 
+
 def adicionar_livro():
     print("Adicionar Livro")
     titulo = input("Título do livro: ")
@@ -50,11 +48,13 @@ def adicionar_livro():
                  categoria=categoria, ano_publicacao=ano)
     print(f"Livro '{titulo}' adicionado com sucesso!")
 
+
 def listar_livros():
     livros = Livro.select()
     for livro in livros:
         print(
-            f"{livro.titulo} - {livro.autor.nome} - {livro.categoria.nome} - {livro.ano_publicacao}")
+            f" {livro.id} - {livro.titulo} - {livro.autor.nome} - {livro.categoria.nome} - {livro.ano_publicacao}")
+
 
 def atualizar_livro():
     listar_livros()
@@ -74,6 +74,7 @@ def atualizar_livro():
     livro.save()
     print(f"Livro '{livro.titulo}' atualizado com sucesso!")
 
+
 def remover_livro():
     listar_livros()
     id_livro = int(input("Digite o ID do livro a ser removido: "))
@@ -81,6 +82,7 @@ def remover_livro():
     livro.delete_instance()
     print(f"Livro '{livro.titulo}' removido com sucesso!")
 
+
 if __name__ == "__main__":
-    criar_banco()  
+    criar_banco()
     menu()
