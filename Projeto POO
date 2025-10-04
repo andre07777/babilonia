@@ -1,0 +1,202 @@
+import tkinter as tk
+from tkinter import messagebox
+from peewee import *
+
+# Banco de dados SQLite
+db = SqliteDatabase('estudantes.db')
+
+# Modelo Peewee
+
+
+class Estudante(Model):
+    nome = CharField()
+    matricula = CharField(unique=True)
+    curso = CharField()
+
+    class Meta:
+        database = db
+
+
+# Criar tabela, se não existir
+db.connect()
+db.create_tables([Estudante])
+
+# Interface Gráfica
+
+
+class App:
+    def __init__(self, janela):
+        self.janela = janela
+        self.janela.title("Cadastro de Estudante")
+
+        # MENU
+        self.menu = tk.Menu(janela)
+        janela.geometry("500x500")
+        janela.config(menu=self.menu)
+
+        # Menu Arquivo
+        arquivo_menu = tk.Menu(self.menu, tearoff=0)
+        arquivo_menu.add_command(label="Sair", command=self.janela.quit)
+        self.menu.add_cascade(label="Arquivo", menu=arquivo_menu)
+
+        # Menu Cadastro
+        cadastro_menu = tk.Menu(self.menu, tearoff=0)
+        cadastro_menu.add_command(
+            label="Limpar Campos", command=self.limpar_campos)
+        cadastro_menu.add_command(
+            label="Atualizar Lista", command=self.atualizar_listbox)
+        self.menu.add_cascade(label="Cadastro", menu=cadastro_menu)
+
+        # Menu Sobre
+        sobre_menu = tk.Menu(self.menu, tearoff=0)
+        sobre_menu.add_command(label="Informações", command=self.mostrar_sobre)
+        self.menu.add_cascade(label="Sobre", menu=sobre_menu)
+
+        # Variáveis auxiliares
+        self.estudante_editando = None
+
+        # Labels e Entradas
+        tk.Label(janela, text="Nome:").grid(row=0, column=0, sticky='e')
+        self.nome_entry = tk.Entry(janela)
+        self.nome_entry.grid(row=0, column=1)
+
+        tk.Label(janela, text="Matrícula:").grid(row=1, column=0, sticky='e')
+        self.matricula_entry = tk.Entry(janela)
+        self.matricula_entry.grid(row=1, column=1)
+
+        tk.Label(janela, text="Curso:").grid(row=2, column=0, sticky='e')
+        self.curso_entry = tk.Entry(janela)
+        self.curso_entry.grid(row=2, column=1)
+
+        # Botões
+        self.salvar_button = tk.Button(
+            janela, text="Salvar", command=self.salvar_estudante)
+        self.salvar_button.grid(row=3, column=0, pady=10)
+
+        tk.Button(janela, text="Limpar", command=self.limpar_campos).grid(
+            row=3, column=1)
+
+        # Listbox
+        self.listbox = tk.Listbox(janela, width=50)
+        self.listbox.grid(row=4, column=0, columnspan=2, pady=10)
+        self.listbox.bind("<<ListboxSelect>>", self.selecionar_estudante)
+
+        # Botões abaixo da Listbox
+        tk.Button(janela, text="Editar", command=self.editar_estudante).grid(
+            row=5, column=0)
+        tk.Button(janela, text="Excluir", command=self.excluir_estudante).grid(
+            row=5, column=1)
+        tk.Button(janela, text="Atualizar", command=self.atualizar_listbox).grid(
+            row=6, column=0, columnspan=2, pady=5)
+
+        # Preencher lista inicial
+        self.atualizar_listbox()
+
+    def salvar_estudante(self):
+        nome = self.nome_entry.get().strip()
+        matricula = self.matricula_entry.get().strip()
+        curso = self.curso_entry.get().strip()
+
+        if not nome or not matricula or not curso:
+            messagebox.showerror(
+                "Erro", "Todos os campos devem ser preenchidos.")
+            return
+
+        try:
+            if self.estudante_editando:
+                estudante = Estudante.get_by_id(self.estudante_editando)
+                estudante.nome = nome
+                estudante.matricula = matricula
+                estudante.curso = curso
+                estudante.save()
+                messagebox.showinfo(
+                    "Sucesso", "Estudante atualizado com sucesso!")
+                self.estudante_editando = None
+                self.salvar_button.config(text="Salvar")
+            else:
+                Estudante.create(nome=nome, matricula=matricula, curso=curso)
+                messagebox.showinfo(
+                    "Sucesso", "Estudante cadastrado com sucesso!")
+
+            self.limpar_campos()
+            self.atualizar_listbox()
+
+        except IntegrityError:
+            messagebox.showerror("Erro", "Matrícula já cadastrada.")
+
+    def limpar_campos(self):
+        self.nome_entry.delete(0, tk.END)
+        self.matricula_entry.delete(0, tk.END)
+        self.curso_entry.delete(0, tk.END)
+        self.listbox.selection_clear(0, tk.END)
+        self.estudante_editando = None
+        self.salvar_button.config(text="Salvar")
+
+    def atualizar_listbox(self):
+        self.listbox.delete(0, tk.END)
+        for estudante in Estudante.select():
+            texto = f"{
+                estudante.id} - {estudante.nome} | {estudante.matricula} | {estudante.curso}"
+            self.listbox.insert(tk.END, texto)
+
+    def selecionar_estudante(self, event):
+        selection = self.listbox.curselection()
+        if selection:
+            index = selection[0]
+            texto = self.listbox.get(index)
+            estudante_id = int(texto.split(" - ")[0])
+            self.estudante_editando = estudante_id
+
+    def editar_estudante(self):
+        selection = self.listbox.curselection()
+        if not selection:
+            messagebox.showwarning(
+                "Atenção", "Selecione um estudante para editar.")
+            return
+
+        index = selection[0]
+        texto = self.listbox.get(index)
+        estudante_id = int(texto.split(" - ")[0])
+        estudante = Estudante.get_by_id(estudante_id)
+
+        self.nome_entry.delete(0, tk.END)
+        self.nome_entry.insert(0, estudante.nome)
+
+        self.matricula_entry.delete(0, tk.END)
+        self.matricula_entry.insert(0, estudante.matricula)
+
+        self.curso_entry.delete(0, tk.END)
+        self.curso_entry.insert(0, estudante.curso)
+
+        self.estudante_editando = estudante_id
+        self.salvar_button.config(text="Atualizar")
+
+    def excluir_estudante(self):
+        selection = self.listbox.curselection()
+        if not selection:
+            messagebox.showwarning(
+                "Atenção", "Selecione um estudante para excluir.")
+            return
+
+        index = selection[0]
+        texto = self.listbox.get(index)
+        estudante_id = int(texto.split(" - ")[0])
+
+        confirm = messagebox.askyesno(
+            "Confirmação", "Tem certeza que deseja excluir?")
+        if confirm:
+            Estudante.delete_by_id(estudante_id)
+            self.atualizar_listbox()
+            messagebox.showinfo("Sucesso", "Estudante excluído com sucesso.")
+            self.limpar_campos()
+
+    def mostrar_sobre(self):
+        messagebox.showinfo(
+            "Sobre", "Sistema de Cadastro de Estudantes\nVersão 1.0\nDesenvolvido com Tkinter e Peewee")
+
+
+# Iniciar aplicação
+if __name__ == "__main__":
+    janela = tk.Tk()
+    app = App(janela)
+    janela.mainloop()
